@@ -1,0 +1,51 @@
+#include<Siv3D.hpp> // OpenSiv3D v0.3.1
+
+void Main()
+{
+	const Image loaded(U"image.jpg");
+	Image image = loaded.scaled(0.5);
+
+	constexpr int N = 4; // 減少後の色数
+
+	Array<Color> colors(N);
+	for (auto&& i : colors)
+		i = RandomColor();
+
+	Logger << U"減色処理中";
+	const auto dis = [](const Color& a, const Color& b) {
+		return (a.r - b.r)*(a.r - b.r) + (a.b - b.b)*(a.b - b.b) + (a.g - b.g)*(a.g - b.g);
+	};
+	Grid<Optional<int>> t(image.size());
+	for (int c : step(256)) {
+		Logger << c;
+		for (auto&& i : t)
+			i = none;
+		for (const auto& i : step(image.size()))
+			for (const auto& j : step(N))
+				if (!t[i] || dis(image[i], colors[j]) < dis(image[i], colors[*t[i]]))
+					t[i] = j;
+		Array<Vec3> a(N, Vec3::Zero());
+		Array<int> c(N, 0);
+		for (const auto& i : step(image.size())) {
+			a[*t[i]].x += image[i].r;
+			a[*t[i]].y += image[i].b;
+			a[*t[i]].z += image[i].g;
+			++c[*t[i]];
+		}
+		for (int i : step(N)) {
+			colors[i].r = a[i].x / c[i];
+			colors[i].b = a[i].y / c[i];
+			colors[i].g = a[i].z / c[i];
+		}
+	}
+	for (auto i : step(image.size()))
+		image[i] = colors[*t[i]];
+	Logger << U"減色処理終了";
+
+	const Texture texture_b(loaded.scaled(0.5));
+	const Texture texture(image);
+	while (System::Update()) {
+		texture_b.draw();
+		texture.draw(Vec2(400, 0));
+	}
+}
